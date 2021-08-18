@@ -80,6 +80,17 @@ Here is another example to match an op with a specific attribute:
         y = relay.var('y')
         assert not is_conv2d.match(relay.op.nn.conv2d(x, y))
 
+Or a convolution with a specific kernel size:
+
+.. code-block:: python
+
+    def test_match_kernel_size():
+        is_conv2d = is_op("nn.conv2d")(wildcard(), wildcard()).has_attr({"kernel_size": [3, 3]})
+        x = relay.var('x')
+        y = relay.var('y')
+        assert is_conv2d.match(relay.op.nn.conv2d(x, y, kernel_size=[3, 3]))
+      
+
 
 Matching an Optional Op
 ***********************
@@ -395,7 +406,7 @@ Either match the first pattern or the second pattern.
 Domination
 **********
 
-Match child pattern, find a match for the parent pattern, insuring that the child ultimately dominates the parrent (i.e., no nodes outside the pattern use outputs of the parent), and that ever node betwen the child and the pattern matches the path pattern.
+Match child pattern, find a match for the parent pattern, insuring that the child ultimately dominates the parent (i.e., no nodes outside the pattern use outputs of the parent), and that ever node between the child and the pattern matches the path pattern.
 
 Function Pattern
 ****************
@@ -423,13 +434,15 @@ Pattern Rewriting
 
 If you would like to replace the matched pattern with another subgraph, you can leverage
 the ``rewrite`` transformation. Here is an example of rewriting a series of arithmetic operators
-with a single batch_norm op:
+with a single batch_norm op. The constructor parameter ``require_type`` indicates whether InferType
+is required to be run before the callback.
 
 .. code-block:: python
 
     class BatchnormCallback(DFPatternCallback):
         # A callback class to rewrite the matched pattern to a batch_norm op.
-        def __init__(self):
+        def __init__(self, require_type=False):
+            super().__init__(require_type)
             self.x = wildcard()
             self.var = wildcard()
             self.mean = wildcard()

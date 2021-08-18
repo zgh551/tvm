@@ -52,7 +52,7 @@ from matplotlib import pyplot as plt
 import tvm
 from tvm import te
 from tvm import rpc, autotvm, relay
-from tvm.contrib import graph_executor, utils, download, graph_runtime
+from tvm.contrib import graph_executor, utils, download
 from tvm.contrib.debugger import debug_executor
 from tvm.relay import transform
 
@@ -141,7 +141,7 @@ ctx = remote.ext_dev(0) if device == "vta" else remote.cpu(0)
 
 ######################################################################
 # Build the inference graph executor
-# ---------------------------------
+# ----------------------------------
 # Grab vision model from Gluon model zoo and compile with Relay.
 # The compilation steps are:
 #
@@ -223,10 +223,10 @@ with autotvm.tophub.context(target):
 
     if env.TARGET == "intelfocl" or env.TARGET == "sim":
         ctxes = [remote.ext_dev(0), remote.cpu(0)]
-        m = graph_runtime.create(graph, lib, ctxes)
+        m = graph_executor.create(graph, lib, ctxes)
     else:
         # Graph runtime
-        m = graph_runtime.create(graph, lib, ctx)
+        m = graph_executor.create(graph, lib, ctx)
 
 ######################################################################
 # Perform image classification inference

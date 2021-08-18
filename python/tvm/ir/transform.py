@@ -107,8 +107,8 @@ class PassContext(tvm.runtime.Object):
     def override_instruments(self, instruments):
         """Override instruments within this PassContext.
 
-        If there are existing instruments, their exit_pass_ctx callbacks are called.
-        Then switching to new instruments and calling new enter_pass_ctx callbacks.
+        If there are existing instruments, their ``exit_pass_ctx`` callbacks are called.
+        Then switching to new instruments and calling new ``enter_pass_ctx`` callbacks.
 
         instruments : Sequence[PassInstrument]
             The list of pass instrument implementations.
@@ -119,6 +119,17 @@ class PassContext(tvm.runtime.Object):
     def current():
         """Return the current pass context."""
         return _ffi_transform_api.GetCurrentPassContext()
+
+    @staticmethod
+    def list_configs():
+        """List all registered `PassContext` configuration names and metadata.
+
+        Returns
+        -------
+        configs : Dict[str, Dict[str, str]]
+
+        """
+        return _ffi_transform_api.ListConfigs()
 
 
 @tvm._ffi.register_object("transform.Pass")
@@ -188,7 +199,7 @@ class Sequential(Pass):
         The list of passes that the sequential pass is dependent on.
     """
 
-    def __init__(self, passes=None, opt_level=2, name="sequential", required=None):
+    def __init__(self, passes=None, opt_level=0, name="sequential", required=None):
         passes = passes if passes else []
         if not isinstance(passes, (list, tuple)):
             raise TypeError("passes must be a list of Pass objects.")

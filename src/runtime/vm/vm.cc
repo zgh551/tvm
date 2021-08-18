@@ -159,6 +159,21 @@ PackedFunc VirtualMachine::GetFunction(const std::string& name,
         return 1;
       }
     });
+  } else if (name == "get_input_index") {
+    return TypedPackedFunc<int64_t(std::string, std::string)>(
+        [this](std::string input_name, std::string func_name) {
+          auto gvit = exec_->global_map.find(func_name);
+          ICHECK(gvit != exec_->global_map.end()) << "Cannot find function " << func_name;
+          auto func_index = gvit->second;
+          const auto& vm_func = exec_->functions[func_index];
+          const auto& param_names = vm_func.params;
+          for (uint64_t i = 0; i < param_names.size(); i++) {
+            if (input_name == param_names[i]) {
+              return static_cast<int64_t>(i);
+            }
+          }
+          return static_cast<int64_t>(-1);
+        });
   } else if (name == "init") {
     return PackedFunc([sptr_to_self, this](TVMArgs args, TVMRetValue* rv) {
       ICHECK_EQ(args.size() % 3, 0);
@@ -473,7 +488,7 @@ void VirtualMachine::RunLoop() {
       case Opcode::InvokeClosure: {
         auto object = ReadRegister(instr.closure);
         const auto* closure = object.as<VMClosureObj>();
-
+        ICHECK(closure);
         std::vector<ObjectRef> args;
         for (auto free_var : closure->free_vars) {
           args.push_back(free_var);

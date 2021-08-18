@@ -666,7 +666,7 @@ def test_forward_leakyrelu():
 def test_forward_elu():
     torch.set_grad_enabled(False)
     input_shape = [1, 3, 10, 10]
-    input_data = torch.rand(input_shape).float()
+    input_data = torch.randn(input_shape).float()
     verify_model(torch.nn.ELU().eval(), input_data=input_data)
     verify_model(torch.nn.ELU(alpha=0.3).eval(), input_data=input_data)
     verify_model(torch.nn.ELU(alpha=1.0).eval(), input_data=input_data)
@@ -698,6 +698,14 @@ def test_forward_selu():
     input_shape = [1, 3, 10, 10]
     input_data = torch.rand(input_shape).float()
     verify_model(torch.nn.SELU().eval(), input_data=input_data)
+
+
+@tvm.testing.uses_gpu
+def test_forward_silu():
+    torch.set_grad_enabled(False)
+    input_shape = [1, 3, 10, 10]
+    input_data = torch.rand(input_shape).float()
+    verify_model(torch.nn.SiLU().eval(), input_data=input_data)
 
 
 @tvm.testing.uses_gpu
@@ -1569,8 +1577,10 @@ def test_forward_linear():
             return F.linear(input, weight)
 
     input2d = torch.rand([2, 2]).float()
+    input3d = torch.rand([4, 3, 2]).float()
     weight1d = torch.rand([2]).float()
     weight2d = torch.rand([2, 2]).float()
+    weight3x2 = torch.rand([3, 2]).float()
     bias1d = torch.rand([2]).float()
     bias2d = torch.rand([2, 2]).float()
     # 2D input, 2D weight, 1D bias
@@ -1579,9 +1589,12 @@ def test_forward_linear():
     verify_model(Linear(), input_data=[input2d, weight2d, bias2d])
     # 2D input, 2D weight, no bias
     verify_model(LinearNoBias(), input_data=[input2d, weight2d])
+    verify_model(LinearNoBias(), input_data=[input2d, weight3x2])
     # 2D input, 1D weight, 1D bias is not supported by torch.linear()
     # 2D input, 1D weight, no bias
     verify_model(LinearNoBias(), input_data=[input2d, weight1d])
+    # 3D input, 2D weight, no bias
+    verify_model(LinearNoBias(), input_data=[input3d, weight3x2])
     # TODO: Add the following cases when matmul(1D, _) is supported by TVM
     # 1D input, 2D weight, 1D bias
     # 1D input, 2D weight, no bias
@@ -1756,6 +1769,9 @@ def test_upsample():
     verify_model(Upsample(size=(64, 64), mode="bilinear", align_corners=True), inp)
     verify_model(Upsample(scale=2, mode="bilinear", align_corners=True), inp)
     verify_model(Upsample(size=(50, 50), mode="bilinear", align_corners=True), inp)
+    verify_model(Upsample(size=(64, 64), mode="bicubic", align_corners=True), inp)
+    verify_model(Upsample(scale=2, mode="bicubic", align_corners=True), inp)
+    verify_model(Upsample(size=(50, 50), mode="bicubic", align_corners=True), inp)
 
 
 @tvm.testing.uses_gpu
@@ -2224,8 +2240,7 @@ def verify_model_vm(input_model, ishapes, idtype=None, idata=None, targets=["llv
         print("Running on target", tgt)
         dev = tvm.device(tgt, 0)
 
-        executor = relay.create_executor("vm", mod=mod, device=dev, target=tgt)
-        evaluator = executor.evaluate()
+        evaluator = relay.create_executor("vm", mod=mod, device=dev, target=tgt).evaluate()
 
         # Inference
         for name, inp in zip(input_names, input_data):
@@ -3870,6 +3885,48 @@ def test_unique():
     verify_trace_model(test_fn(True, False, True), [in_data], targets)
 
 
+def test_forward_nll_loss():
+    torch.set_grad_enabled(False)
+    N, C = 10, 3
+    predictions = torch.rand((N, C)).float()
+    targets = torch.randint(0, 3, (N,))
+    weights = torch.tensor([1, 2, 3]).float()
+    verify_model(torch.nn.NLLLoss().eval(), input_data=[predictions, targets])
+    verify_model(torch.nn.NLLLoss(weight=weights).eval(), input_data=[predictions, targets])
+    verify_model(torch.nn.NLLLoss(ignore_index=1).eval(), input_data=[predictions, targets])
+    verify_model(torch.nn.NLLLoss(reduction="sum").eval(), input_data=[predictions, targets])
+    verify_model(torch.nn.NLLLoss(reduction="none").eval(), input_data=[predictions, targets])
+
+    # multidimension nll loss (aten::nll_loss2d)
+    d1, d2 = 2, 3
+    predictions = torch.rand((N, C, d1, d2)).float()
+    targets = torch.randint(0, 3, (N, d1, d2))
+    verify_model(torch.nn.NLLLoss().eval(), input_data=[predictions, targets])
+    verify_model(torch.nn.NLLLoss(weight=weights).eval(), input_data=[predictions, targets])
+    verify_model(torch.nn.NLLLoss(ignore_index=1).eval(), input_data=[predictions, targets])
+    verify_model(torch.nn.NLLLoss(reduction="sum").eval(), input_data=[predictions, targets])
+    verify_model(torch.nn.NLLLoss(reduction="none").eval(), input_data=[predictions, targets])
+
+
+@tvm.testing.uses_gpu
+def test_forward_flip():
+    torch.set_grad_enabled(False)
+
+    class Flip(Module):
+        def __init__(self, axis=0):
+            super().__init__()
+            self.axis = axis
+
+        def forward(self, x):
+            return x.flip([self.axis])
+
+    input = torch.randn(2, 3, 4)
+    verify_model(Flip(axis=0), input_data=input)
+    verify_model(Flip(axis=1), input_data=input)
+    verify_model(Flip(axis=2), input_data=input)
+    verify_model(Flip(axis=-1), input_data=input)
+
+
 if __name__ == "__main__":
     # some structural tests
     test_forward_traced_function()
@@ -3939,6 +3996,7 @@ if __name__ == "__main__":
     test_forward_logsoftmax()
     test_forward_sigmoid()
     test_forward_dense()
+    test_forward_linear()
     test_forward_avgpool1d()
     test_forward_avgpool2d()
     test_forward_avgpool3d()
@@ -4011,6 +4069,8 @@ if __name__ == "__main__":
     test_unique()
     test_hard_swish()
     test_hard_sigmoid()
+    test_forward_nll_loss()
+    test_forward_flip()
 
     # Model tests
     test_resnet18()

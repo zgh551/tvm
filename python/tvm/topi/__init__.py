@@ -51,6 +51,7 @@ from . import x86
 from . import cuda
 from . import arm_cpu
 from . import mali
+from . import powervr
 from . import bifrost
 from . import intel_graphics
 from . import utils

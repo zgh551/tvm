@@ -53,6 +53,7 @@ PACKAGE_VERSION = {
     "rocm": "v0.05",
     "opencl": "v0.04",
     "mali": "v0.06",
+    "powervr": "v0.06",
     "intel_graphics": "v0.02",
     "vta": "v0.10",
     "amd_apu": "v0.01",

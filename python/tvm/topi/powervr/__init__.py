@@ -15,17 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# pylint: disable=wildcard-import
-"""Relay op strategies."""
+# pylint: disable=redefined-builtin, wildcard-import
+"""Imagination PowerVR GPU specific declaration and schedules."""
 from __future__ import absolute_import as _abs
 
-from .generic import *
-from . import x86
-from . import arm_cpu
-from . import cuda
-from . import hls
-from . import mali
-from . import powervr
-from . import bifrost
-from . import rocm
-from . import intel_graphics
+from .conv2d import *
+from .depthwise_conv2d import *
+from .dense import *
